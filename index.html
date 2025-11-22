@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PT. Hamdan Jaya Makmur — Stok Gudang</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect rx='24' width='128' height='128' fill='%230ea5e9'/%3E%3Ctext x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-size='62' font-family='Arial' fill='white'%3EH%3C/text%3E%3C/text%3E%3C/svg%3E"/>
+  <style>
+    @media print { .no-print{display:none!important} }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+    }
+    .badge-in {
+      background-color: #22c55e;
+    }
+    .badge-out {
+      background-color: #ef4444;
+    }
+    .badge-del {
+      background-color: #6b7280;
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      color: white;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .toast.success {
+      background-color: #22c55e;
+    }
+    .toast.error {
+      background-color: #ef4444;
+    }
+    .toast.show {
+      opacity: 1;
+    }
+    .search-highlight {
+      background-color: yellow;
+      font-weight: bold;
+    }
+    .read-only-mode {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 text-slate-800">
+
+<!-- Toast Notification -->
+<div id="toast" class="toast"></div>
+
+<!-- LOGIN -->
+<section id="loginSection" class="flex items-center justify-center min-h-screen p-4">
+  <div class="w-full max-w-lg p-8 bg-white/70 backdrop-blur rounded-3xl shadow-2xl">
+    <div class="flex items-center gap-4 mb-6">
+      <div class="w-16 h-16 flex items-center justify-center rounded-xl bg-sky-600 text-white font-bold text-xl">HJM</div>
+      <div>
+        <h1 class="text-2xl font-bold">PT. Hamdan Jaya Makmur</h1>
+        <p class="text-sm text-slate-600">Sistem Persediaan Stok Gudang</p>
+      </div>
+    </div>
+    <div class="space-y-4">
+      <input id="loginUser" placeholder="Username" class="w-full border rounded-xl px-4 py-3 focus:outline-none" value="admin"/>
+      <input id="loginPass" type="password" placeholder="Password" class="w-full border rounded-xl px-4 py-3 focus:outline-none" value="admin123"/>
+      <button id="btnLogin" class="w-full bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl font-semibold">Masuk</button>
+      <div class="text-xs text-slate-500 text-center">@ PT. Hamdan Jaya Makmur V.1.0.2</div>
+    </div>
+  </div>
+</section>
+
+<!-- APP -->
+<section id="appSection" class="hidden">
+  <header class="no-print bg-white/70 backdrop-blur sticky top-0 z-50 shadow">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="p-2 rounded-lg bg-sky-100 text-sky-700 font-bold">HJM</div>
+        <div>
+          <h2 class="font-semibold">PT. Hamdan Jaya Makmur</h2>
+          <p class="text-xs text-slate-500">Sistem Persediaan Stok Gudang</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-sm">Login: <b id="lblUser">-</b> (<span id="lblRole">-</span>)</div>
+        <button id="btnLogout" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="no-print bg-slate-900 text-white">
+    <div class="max-w-7xl mx-auto px-4">
+      <ul class="flex gap-2 text-sm py-2">
+        <li><button data-view="barangView" class="navbtn px-3 py-1.5 rounded hover:bg-white/10">Daftar Barang</button></li>
+        <li><button data-view="inView" class="navbtn px-3 py-1.5 rounded hover:bg-white/10">Stok In</button></li>
+        <li><button data-view="outView" class="navbtn px-3 py-1.5 rounded hover:bg-white/10">Stok Out</button></li>
+        <li><button data-view="riwayatView" class="navbtn px-3 py-1.5 rounded hover:bg-white/10">Riwayat</button></li>
+        <li><button data-view="laporanView" class="navbtn px-3 py-1.5 rounded hover:bg-white/10">Laporan Bulanan</button></li>
+        <li><button data-view="pengaturanView" class="navbtn px-3 py-1.5 rounded hover:bg-white/10">Pengaturan</button></li>                                       
+        <li><button id="btnRefresh" class="px-3 py-1.5 rounded hover:bg-white/10">🔄 Refresh</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-8">
+    <!-- cards -->
+    <section class="grid md:grid-cols-4 gap-4 no-print">
+      <div class="p-4 bg-white rounded-2xl shadow">
+        <p class="text-xs text-slate-500">Total Barang</p>
+        <h3 id="cardTotalBarang" class="text-2xl font-bold">0</h3>
+      </div>
+      <div class="p-4 bg-white rounded-2xl shadow">
+        <p class="text-xs text-slate-500">Total Qty</p>
+        <h3 id="cardTotalQty" class="text-2xl font-bold">0</h3>
+      </div>
+      <div class="p-4 bg-white rounded-2xl shadow">
+        <p class="text-xs text-slate-500">Transaksi Bulan Ini</p>
+        <h3 id="cardTransaksiBulanIni" class="text-2xl font-bold">0</h3>
+      </div>
+      <div class="p-4 bg-white rounded-2xl shadow">
+        <p class="text-xs text-slate-500">Terakhir Diupdate</p>
+        <h3 id="cardLastUpdate" class="text-sm font-semibold">-</h3>
+      </div>
+    </section>
+
+    <!-- Modal Tambah/Edit Barang -->
+    <div id="modalBarang" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-4" id="modalTitle">Tambah Barang</h3>
+        <form id="formBarang">
+          <input type="hidden" id="barangId">
+          <div class="space-y-3">
+            <div>
+              <label class="text-sm">Kode Barang</label>
+              <input type="text" id="barangKode" class="w-full border rounded-lg px-3 py-2 mt-1" readonly>
+            </div>
+            <div>
+              <label class="text-sm">Nama Barang *</label>
+              <input type="text" id="barangNama" class="w-full border rounded-lg px-3 py-2 mt-1" required>
+            </div>
+            <div>
+              <label class="text-sm">Lokasi *</label>
+              <input type="text" id="barangLokasi" class="w-full border rounded-lg px-3 py-2 mt-1" required>
+            </div>
+            <div>
+              <label class="text-sm">Satuan *</label>
+              <input type="text" id="barangSatuan" class="w-full border rounded-lg px-3 py-2 mt-1" required>
+            </div>
+            <div>
+              <label class="text-sm">Qty Awal *</label>
+              <input type="number" id="barangQty" class="w-full border rounded-lg px-3 py-2 mt-1" min="0" required>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 mt-6">
+            <button type="button" id="btnCancelBarang" class="px-4 py-2 border rounded-lg">Batal</button>
+            <button type="submit" class="px-4 py-2 bg-sky-600 text-white rounded-lg">Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Detail Riwayat -->
+    <div id="modalRiwayat" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-4">Detail Transaksi</h3>
+        <div id="riwayatDetail" class="space-y-3">
+          <!-- Detail transaksi akan diisi oleh JavaScript -->
+        </div>
+        <div class="flex justify-end mt-6">
+          <button id="btnTutupRiwayat" class="px-4 py-2 bg-sky-600 text-white rounded-lg">Tutup</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- views -->
+    <section id="barangView" class="view">
+      <div class="flex items-center justify-between mb-3 gap-2">
+        <h2 class="text-lg font-semibold">Daftar Barang</h2>
+        <div class="flex gap-2 flex-wrap">
+          <input id="searchBarang" class="border rounded-lg px-3 py-1.5" placeholder="Cari kode / nama / lokasi" />
+          <button id="btnTambahBarang" class="admin-only bg-sky-500 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg">Tambah Barang</button>
+          <button id="btnExportBarangExcel" class="bg-green-600 text-white px-3 py-1.5 rounded-lg">Export Excel</button>
+          <button id="btnExportBarangPDF" class="bg-red-600 text-white px-3 py-1.5 rounded-lg">Export PDF</button>
+          <label class="cursor-pointer bg-emerald-600 text-white px-3 py-1.5 rounded-lg admin-only">
+            <i class="fas fa-upload mr-1"></i> Import Excel
+            <input id="inputImportExcel" type="file" accept=".xlsx,.xls" class="hidden">
+          </label>
+          <button id="btnBackupJSON" class="bg-slate-700 text-white px-3 py-1.5 rounded-lg admin-only">
+            <i class="fas fa-download mr-1"></i> Backup
+          </button>
+          <label class="cursor-pointer bg-slate-900 text-white px-3 py-1.5 rounded-lg admin-only">
+            <i class="fas fa-upload mr-1"></i> Restore
+            <input id="inputRestoreJSON" type="file" accept=".json" class="hidden">
+          </label>
+        </div>
+      </div>
+      <div class="overflow-auto bg-white rounded-2xl shadow">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="text-center p-2">No</th>
+              <th class="text-center p-2">Kode</th>
+              <th class="text-center p-2">Nama Barang</th>
+              <th class="text-center p-2">Lokasi</th>
+              <th class="text-center p-2">Satuan</th>
+              <th class="text-center p-2">Qty</th>
+              <th class="text-center p-2">Terakhir Diupdate</th>
+              <th class="text-center p-2 admin-only">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyBarang"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="inView" class="view hidden">
+      <h2 class="text-lg font-semibold mb-3">Stok In</h2>
+      <form id="formIn" class="grid md:grid-cols-5 gap-3 bg-white p-4 rounded-2xl shadow">
+        <label><span class="text-sm">Kode</span>
+          <select id="inKode" class="mt-1 w-full border rounded-lg px-3 py-2">
+            <option value="">Pilih Kode Barang</option>
+          </select>
+        </label>
+        <label class="md:col-span-2"><span class="text-sm">Nama</span><input id="inNama" readonly class="mt-1 w-full border rounded-lg px-3 py-2 bg-gray-100"></label>
+        <label><span class="text-sm">Qty (+)</span><input id="inQty" type="number" min="1" class="mt-1 w-full border rounded-lg px-3 py-2"></label>
+        <label class="md:col-span-5"><span class="text-sm">Catatan</span><input id="inNote" class="mt-1 w-full border rounded-lg px-3 py-2"></label>
+        <div class="md:col-span-5 flex justify-end"><button class="bg-sky-600 text-white px-4 py-2 rounded-lg admin-only">Simpan</button></div>
+      </form>
+    </section>
+
+    <section id="outView" class="view hidden">
+      <h2 class="text-lg font-semibold mb-3">Stok Out</h2>
+      <form id="formOut" class="grid md:grid-cols-5 gap-3 bg-white p-4 rounded-2xl shadow">
+        <label><span class="text-sm">Kode</span>
+          <select id="outKode" class="mt-1 w-full border rounded-lg px-3 py-2">
+            <option value="">Pilih Kode Barang</option>
+          </select>
+        </label>
+        <label class="md:col-span-2"><span class="text-sm">Nama</span><input id="outNama" readonly class="mt-1 w-full border rounded-lg px-3 py-2 bg-gray-100"></label>
+        <label><span class="text-sm">Qty (-)</span><input id="outQty" type="number" min="1" class="mt-1 w-full border rounded-lg px-3 py-2"></label>
+        <label class="md:col-span-5"><span class="text-sm">Catatan</span><input id="outNote" class="mt-1 w-full border rounded-lg px-3 py-2"></label>
+        <div class="md:col-span-5 flex justify-end"><button class="bg-sky-600 text-white px-4 py-2 rounded-lg admin-only">Simpan</button></div>
+      </form>
+    </section>
+
+    <section id="riwayatView" class="view hidden">
+      <div class="flex items-center justify-between mb-3 gap-2">
+        <h2 class="text-lg font-semibold">Riwayat Transaksi</h2>
+        <div class="flex gap-2 items-end">
+          <input id="searchRiwayat" class="border rounded-lg px-3 py-1.5" placeholder="Cari kode, nama, user atau catatan" />
+          <div class="flex flex-col">
+            <span class="text-sm">Filter Stok</span>
+            <select id="filterRiwayat" class="border px-3 py-1.5 rounded-lg bg-white mt-1">
+              <option value="all">Semua Riwayat</option>
+              <option value="in">Stok In</option>
+              <option value="out">Stok Out</option>
+              <option value="del">Hapus</option>
+            </select>
+          </div>
+          <button id="btnExportRiwayatExcel" class="bg-green-600 text-white px-3 py-1.5 rounded-lg">Export Excel</button>
+          <button id="btnExportRiwayatPDF" class="bg-red-600 text-white px-3 py-1.5 rounded-lg">Export PDF</button>
+          <button id="btnClearRiwayat" class="admin-only bg-rose-600 text-white px-3 py-1.5 rounded-lg">Hapus Semua Riwayat</button>
+        </div>
+      </div>
+      <div class="overflow-auto bg-white rounded-2xl shadow">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="text-center p-2">Waktu</th>
+              <th class="text-center p-2">Kode</th>
+              <th class="text-center p-2">Nama Barang</th>
+              <th class="text-center p-2">Jenis</th>
+              <th class="text-center p-2">Qty</th>
+              <th class="text-center p-2">User</th>
+              <th class="text-center p-2">Catatan</th>
+              <th class="text-center p-2">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyRiwayat"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="laporanView" class="view hidden">
+      <h2 class="text-lg font-semibold mb-3">Laporan Bulanan Stok Opname</h2>
+      <div class="bg-white p-4 rounded-2xl shadow space-y-4">
+        <div class="flex items-end gap-3">
+          <label><span class="text-sm">Bulan</span><input type="month" id="lapBulan" class="mt-1 border rounded-lg px-3 py-2"></label>
+          <button id="btnHitungLaporan" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Hitung</button>
+          <button id="btnExportLaporanPDF" class="bg-red-600 text-white px-3 py-2 rounded-lg">Export PDF</button>
+        </div>
+        <div id="chartContainer">
+          <canvas id="chartLaporan" height="120"></canvas>
+        </div>
+        <div class="overflow-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100">
+              <tr>
+                <th class="text-center p-2">Kode</th>
+                <th class="text-center p-2">Nama</th>
+                <th class="text-center p-2">Masuk</th>
+                <th class="text-center p-2">Keluar</th>
+                <th class="text-center p-2">Qty Akhir</th>
+              </tr>
+            </thead>   
+            <tbody id="tbodyLaporan"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>    
+
+    <section id="pengaturanView" class="view hidden">
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-white p-4 rounded-2xl shadow">
+          <h3 class="font-semibold mb-3">Ubah Password</h3>
+          <input id="oldPass" type="password" placeholder="Password Lama" class="w-full border rounded-lg px-3 py-2 mb-2">
+          <input id="newPass" type="password" placeholder="Password Baru" class="w-full border rounded-lg px-3 py-2 mb-2">
+          <button id="btnChangePass" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Simpan</button>
+        </div>
+        <div class="bg-white p-4 rounded-2xl shadow admin-only">
+          <h3 class="font-semibold mb-3">Manajemen User (Admin)</h3>
+          <div class="grid md:grid-cols-3 gap-2">
+            <input id="mUser" placeholder="username" class="border rounded-lg px-3 py-2">
+            <select id="mRole" class="border rounded-lg px-3 py-2"><option value="admin">admin</option><option value="read">read-only</option></select>
+            <input id="mPass" placeholder="password" class="border rounded-lg px-3 py-2">
+          </div>
+          <button id="btnAddUser" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg mt-2">Tambah</button>
+          <div class="mt-3 overflow-auto">
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-100"><tr><th class="text-left p-2">Username</th><th class="text-left p-2">Role</th><th class="text-center p-2 admin-only">Aksi</th></tr></thead>
+              <tbody id="tbodyUsers"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</section>
+
+<script>
+// Fungsi untuk menampilkan notifikasi
+function showToast(message, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `toast ${type} show`;
+  
+  setTimeout(() => {
+    toast.className = 'toast';
+  }, 3000);
+}
+
+// Data aplikasi
+let appData = {
+  barang: [],
+  riwayat: [],
+  users: [
+    { username: 'admin', password: 'admin123', role: 'admin' },
+    { username: 'user', password: 'user123', role: 'read' }
+  ],
+  settings: {
+    lastKode: 0
+  }
+};
+
+// Variabel untuk menyimpan role user yang login
+let currentUserRole = '';
+
+// Fungsi untuk memuat data dari localStorage
+function loadData() {
+  const savedData = localStorage.getItem('hjm-stock-data');
+  if (savedData) {
+    appData = JSON.parse(savedData);
+    // Pastikan lastKode selalu sesuai dengan barang terakhir
+    if (appData.barang.length > 0) {
+      const lastKode = Math.max(...appData.barang.map(item => {
+        const kodeNumber = parseInt(item.kode.replace('HJM-', ''));
+        return isNaN(kodeNumber) ? 0 : kodeNumber;
+      }));
+      appData.settings.lastKode = lastKode;
+    } else {
+      appData.settings.lastKode = 0;
+    }
+  }
+  updateDashboard();
+  loadBarangData();
+  loadRiwayatData();
+  loadUserData();
+  updateStokDropdowns();
+}
+
+// Fungsi untuk menyimpan data ke localStorage
+function saveData() {
+  localStorage.setItem('hjm-stock-data', JSON.stringify(appData));
+  showToast('Data berhasil disimpan');
+}
+
+// Fungsi untuk menghasilkan kode barang otomatis
+function generateKodeBarang() {
+  // Cari kode tertinggi yang ada
+  let maxKode = 0;
+  appData.barang.forEach(item => {
+    const kodeNumber = parseInt(item.kode.replace('HJM-', ''));
+    if (!isNaN(kodeNumber) && kodeNumber > maxKode) {
+      maxKode = kodeNumber;
+    }
+  });
+  
+  // Set lastKode ke nilai yang benar
+  appData.settings.lastKode = maxKode;
+  
+  // Hasilkan kode berikutnya
+  appData.settings.lastKode += 1;
+  return `HJM-${appData.settings.lastKode.toString().padStart(4, '0')}`;
+}
+
+// Fungsi untuk memformat tanggal
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  const options = { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+  return date.toLocaleDateString('id-ID', options);
+}
+
+// Fungsi untuk update dashboard
+function updateDashboard() {
+  document.getElementById('cardTotalBarang').textContent = appData.barang.length;
+  
+  const totalQty = appData.barang.reduce((sum, item) => sum + item.qty, 0);
+  document.getElementById('cardTotalQty').textContent = totalQty;
+  
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+  
+  const transaksiBulanIni = appData.riwayat.filter(item => {
+    const itemDate = new Date(item.waktu);
+    return itemDate.getMonth() === thisMonth && itemDate.getFullYear() === thisYear;
+  }).length;
+  
+  document.getElementById('cardTransaksiBulanIni').textContent = transaksiBulanIni;
+  
+  if (appData.riwayat.length > 0) {
+    const lastUpdate = appData.riwayat.reduce((latest, item) => {
+      return new Date(item.waktu) > new Date(latest) ? item.waktu : latest;
+    }, appData.riwayat[0].waktu);
+    
+    document.getElementById('cardLastUpdate').textContent = formatDate(lastUpdate);
+  }
+}
+
+// Fungsi untuk memuat data barang dengan pencarian
+function loadBarangData(searchTerm = '') {
+  const tbody = document.getElementById('tbodyBarang');
+  tbody.innerHTML = '';
+  
+  let filteredBarang = appData.barang;
+  
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filteredBarang = appData.barang.filter(item => 
+      item.kode.toLowerCase().includes(term) || 
+      item.nama.toLowerCase().includes(term) || 
+      item.lokasi.toLowerCase().includes(term)
+    );
+  }
+  
+  filteredBarang.forEach((item, index) => {
+    const row = document.createElement('tr');
+    
+    // Highlight hasil pencarian
+    const highlight = (text, term) => {
+      if (!term) return text;
+      const regex = new RegExp(`(${term})`, 'gi');
+      return text.replace(regex, '<span class="search-highlight">$1</span>');
+    };
+    
+    row.innerHTML = `
+      <td class="p-2 text-center">${index + 1}</td>
+      <td class="p-2 text-center">${searchTerm ? highlight(item.kode, searchTerm) : item.kode}</td>
+      <td class="p-2">${searchTerm ? highlight(item.nama, searchTerm) : item.nama}</td>
+      <td class="p-2">${searchTerm ? highlight(item.lokasi, searchTerm) : item.lokasi}</td>
+      <td class="p-2 text-center">${item.satuan}</td>
+      <td class="p-2 text-center">${item.qty}</td>
+      <td class="p-2 text-center">${formatDate(item.updated)}</td>
+      <td class="p-2 text-center">
+        <button class="edit-barang bg-yellow-500 text-white px-2 py-1 rounded mr-1 admin-only" data-id="${item.id}">Edit</button>
+        <button class="delete-barang bg-red-600 text-white px-2 py-1 rounded admin-only" data-id="${item.id}">Hapus</button>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+  
+  // Update dropdown di Stok In/Out
+  updateStokDropdowns();
+  
+  // Event listener untuk edit dan hapus
+  document.querySelectorAll('.edit-barang').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = this.dataset.id;
+      editBarang(id);
+    });
+  });
+  
+  document.querySelectorAll('.delete-barang').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = this.dataset.id;
+      deleteBarang(id);
+    });
+  });
+}
+
+// Fungsi untuk update dropdown Stok In/Out
+function updateStokDropdowns() {
+  const inKode = document.getElementById('inKode');
+  const outKode = document.getElementById('outKode');
+  
+  // Simpan nilai yang dipilih sebelumnya
+  const selectedInKode = inKode.value;
+  const selectedOutKode = outKode.value;
+  
+  inKode.innerHTML = '<option value="">Pilih Kode Barang</option>';
+  outKode.innerHTML = '<option value="">Pilih Kode Barang</option>';
+  
+  appData.barang.forEach(item => {
+    const optionIn = document.createElement('option');
+    optionIn.value = item.id;
+    optionIn.textContent = item.kode;
+    optionIn.dataset.nama = item.nama;
+    
+    const optionOut = document.createElement('option');
+    optionOut.value = item.id;
+    optionOut.textContent = item.kode;
+    optionOut.dataset.nama = item.nama;
+    
+    inKode.appendChild(optionIn);
+    outKode.appendChild(optionOut);
+  });
+  
+  // Kembalikan nilai yang dipilih sebelumnya jika masih ada
+  if (selectedInKode && appData.barang.some(item => item.id == selectedInKode)) {
+    inKode.value = selectedInKode;
+    updateNamaBarang('inKode', 'inNama');
+  }
+  
+  if (selectedOutKode && appData.barang.some(item => item.id == selectedOutKode)) {
+    outKode.value = selectedOutKode;
+    updateNamaBarang('outKode', 'outNama');
+  }
+}
+
+// Fungsi untuk update nama barang berdasarkan kode yang dipilih
+function updateNamaBarang(kodeElementId, namaElementId) {
+  const kodeSelect = document.getElementById(kodeElementId);
+  const namaInput = document.getElementById(namaElementId);
+  
+  if (kodeSelect.value) {
+    const selectedOption = kodeSelect.options[kodeSelect.selectedIndex];
+    namaInput.value = selectedOption.dataset.nama || '';
+  } else {
+    namaInput.value = '';
+  }
+}
+
+// Fungsi untuk memuat data riwayat dengan filter dan pencarian
+function loadRiwayatData(filter = 'all', searchTerm = '') {
+  const tbody = document.getElementById('tbodyRiwayat');
+  tbody.innerHTML = '';
+  
+  let filteredData = filter === 'all' 
+    ? appData.riwayat 
+    : appData.riwayat.filter(item => item.jenis === filter);
+  
+  // Terapkan pencarian jika ada
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filteredData = filteredData.filter(item => 
+      item.kode.toLowerCase().includes(term) || 
+      item.nama.toLowerCase().includes(term) || 
+      item.user.toLowerCase().includes(term) ||
+      (item.catatan && item.catatan.toLowerCase().includes(term))
+    );
+  }
+  
+  filteredData.forEach(item => {
+    const row = document.createElement('tr');
+    
+    let badgeClass = '';
+    let badgeText = '';
+    
+    switch(item.jenis) {
+      case 'in':
+        badgeClass = 'badge-in';
+        badgeText = 'IN';
+        break;
+      case 'out':
+        badgeClass = 'badge-out';
+        badgeText = 'OUT';
+        break;
+      case 'del':
+        badgeClass = 'badge-del';
+        badgeText = 'HAPUS';
+        break;
+    }
+    
+    // Highlight hasil pencarian
+    const highlight = (text, term) => {
+      if (!term || !text) return text;
+      const regex = new RegExp(`(${term})`, 'gi');
+      return text.replace(regex, '<span class="search-highlight">$1</span>');
+    };
+    
+    row.innerHTML = `
+      <td class="p-2">${formatDate(item.waktu)}</td>
+      <td class="p-2">${searchTerm ? highlight(item.kode, searchTerm) : item.kode}</td>
+      <td class="p-2">${searchTerm ? highlight(item.nama, searchTerm) : item.nama}</td>
+      <td class="p-2 text-center"><span class="badge ${badgeClass}">${badgeText}</span></td>
+      <td class="p-2 text-center">${item.qty}</td>
+      <td class="p-2">${searchTerm ? highlight(item.user, searchTerm) : item.user}</td>
+      <td class="p-2">${searchTerm ? highlight(item.catatan, searchTerm) : item.catatan || ''}</td>
+      <td class="p-2 text-center">
+        <button class="btn-lihat-riwayat bg-blue-500 text-white px-2 py-1 rounded" data-id="${item.id}">Lihat</button>
+      </td>
+    `;
+    
+    tbody.appendChild(row);
+  });
+  
+  // Event listener untuk tombol lihat riwayat
+  document.querySelectorAll('.btn-lihat-riwayat').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = this.dataset.id;
+      lihatDetailRiwayat(id);
+    });
+  });
+}
+
+// Fungsi untuk melihat detail riwayat
+function lihatDetailRiwayat(id) {
+  const transaksi = appData.riwayat.find(item => item.id == id);
+  if (transaksi) {
+    const detailElement = document.getElementById('riwayatDetail');
+    
+    let badgeClass = '';
+    let badgeText = '';
+    
+    switch(transaksi.jenis) {
+      case 'in':
+        badgeClass = 'badge-in';
+        badgeText = 'STOK IN';
+        break;
+      case 'out':
+        badgeClass = 'badge-out';
+        badgeText = 'STOK OUT';
+        break;
+      case 'del':
+        badgeClass = 'badge-del';
+        badgeText = 'HAPUS';
+        break;
+    }
+    
+    detailElement.innerHTML = `
+      <div class="grid grid-cols-2 gap-2">
+        <div class="font-semibold">Waktu:</div>
+        <div>${formatDate(transaksi.waktu)}</div>
+        
+        <div class="font-semibold">Kode Barang:</div>
+        <div>${transaksi.kode}</div>
+        
+        <div class="font-semibold">Nama Barang:</div>
+        <div>${transaksi.nama}</div>
+        
+        <div class="font-semibold">Jenis Transaksi:</div>
+        <div><span class="badge ${badgeClass}">${badgeText}</span></div>
+        
+        <div class="font-semibold">Quantity:</div>
+        <div>${transaksi.qty}</div>
+        
+        <div class="font-semibold">User:</div>
+        <div>${transaksi.user}</div>
+        
+        <div class="font-semibold">Catatan:</div>
+        <div>${transaksi.catatan || '-'}</div>
+      </div>
+    `;
+    
+    document.getElementById('modalRiwayat').classList.remove('hidden');
+  }
+}
+
+// Fungsi untuk memuat data user
+function loadUserData() {
+  const tbody = document.getElementById('tbodyUsers');
+  tbody.innerHTML = '';
+  
+  appData.users.forEach(user => {
+    if (user.username !== 'admin') { // Jangan tampilkan admin dalam daftar
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="p-2">${user.username}</td>
+        <td class="p-2">${user.role}</td>
+        <td class="p-2 text-center">
+          <button class="delete-user bg-red-600 text-white px-2 py-1 rounded admin-only" data-user="${user.username}">Hapus</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    }
+  });
+  
+  // Event listener untuk hapus user
+  document.querySelectorAll('.delete-user').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const username = this.dataset.user;
+      deleteUser(username);
+    });
+  });
+}
+
+// Fungsi untuk tambah barang
+function tambahBarang() {
+  document.getElementById('modalTitle').textContent = 'Tambah Barang';
+  document.getElementById('barangId').value = '';
+  document.getElementById('barangKode').value = generateKodeBarang();
+  document.getElementById('barangNama').value = '';
+  document.getElementById('barangLokasi').value = '';
+  document.getElementById('barangSatuan').value = '';
+  document.getElementById('barangQty').value = '';
+  document.getElementById('modalBarang').classList.remove('hidden');
+}
+
+// Fungsi untuk edit barang
+function editBarang(id) {
+  const barang = appData.barang.find(item => item.id == id);
+  if (barang) {
+    document.getElementById('modalTitle').textContent = 'Edit Barang';
+    document.getElementById('barangId').value = barang.id;
+    document.getElementById('barangKode').value = barang.kode;
+    document.getElementById('barangNama').value = barang.nama;
+    document.getElementById('barangLokasi').value = barang.lokasi;
+    document.getElementById('barangSatuan').value = barang.satuan;
+    document.getElementById('barangQty').value = barang.qty;
+    document.getElementById('modalBarang').classList.remove('hidden');
+  }
+}
+
+// Fungsi untuk hapus barang
+function deleteBarang(id) {
+  if (confirm('Apakah Anda yakin ingin menghapus barang ini?')) {
+    const barang = appData.barang.find(item => item.id == id);
+    if (barang) {
+      // Tambahkan ke riwayat
+      appData.riwayat.push({
+        id: Date.now(),
+        waktu: new Date().toISOString(),
+        kode: barang.kode,
+        nama: barang.nama,
+        jenis: 'del',
+        qty: barang.qty,
+        user: document.getElementById('lblUser').textContent,
+        catatan: 'Barang dihapus dari sistem'
+      });
+      
+      // Hapus dari data barang
+      appData.barang = appData.barang.filter(item => item.id != id);
+      
+      saveData();
+      loadBarangData(document.getElementById('searchBarang').value);
+      loadRiwayatData(document.getElementById('filterRiwayat').value, document.getElementById('searchRiwayat').value);
+      updateDashboard();
+      
+      showToast('Barang berhasil dihapus');
+    }
+  }
+}
+
+// Fungsi untuk hapus user
+function deleteUser(username) {
+  if (confirm(`Apakah Anda yakin ingin menghapus user ${username}?`)) {
+    appData.users = appData.users.filter(user => user.username !== username);
+    saveData();
+    loadUserData();
+    showToast('User berhasil dihapus');
+  }
+}
+
+// Fungsi untuk export data barang ke Excel
+function exportBarangExcel() {
+  const data = appData.barang.map(item => ({
+    'Kode': item.kode,
+    'Nama': item.nama,
+    'Lokasi': item.lokasi,
+    'Satuan': item.satuan,
+    'Qty': item.qty,
+    'Terakhir Diupdate': formatDate(item.updated)
+  }));
+  
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Daftar Barang');
+  XLSX.writeFile(workbook, 'Daftar_Barang.xlsx');
+  
+  showToast('Data berhasil diexport ke Excel');
+}
+
+// Fungsi untuk export data barang ke PDF
+function exportBarangPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  doc.text('DAFTAR BARANG - PT. HAMDAN JAYA MAKMUR', 14, 15);
+  doc.autoTable({
+    head: [['Kode', 'Nama', 'Lokasi', 'Satuan', 'Qty', 'Terakhir Update']],
+    body: appData.barang.map(item => [
+      item.kode,
+      item.nama,
+      item.lokasi,
+      item.satuan,
+      item.qty,
+      formatDate(item.updated)
+    ]),
+    startY: 20,
+  });
+  
+  doc.save('Daftar_Barang.pdf');
+  showToast('Data berhasil diexport ke PDF');
+}
+
+// Fungsi untuk export riwayat ke Excel
+function exportRiwayatExcel() {
+  const filter = document.getElementById('filterRiwayat').value;
+  const searchTerm = document.getElementById('searchRiwayat').value;
+  
+  let filteredData = filter === 'all' 
+    ? appData.riwayat 
+    : appData.riwayat.filter(item => item.jenis === filter);
+  
+  // Terapkan pencarian jika ada
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filteredData = filteredData.filter(item => 
+      item.kode.toLowerCase().includes(term) || 
+      item.nama.toLowerCase().includes(term) || 
+      item.user.toLowerCase().includes(term) ||
+      (item.catatan && item.catatan.toLowerCase().includes(term))
+    );
+  }
+  
+  const data = filteredData.map(item => ({
+    'Waktu': formatDate(item.waktu),
+    'Kode': item.kode,
+    'Nama': item.nama,
+    'Jenis': item.jenis.toUpperCase(),
+    'Qty': item.qty,
+    'User': item.user,
+    'Catatan': item.catatan || ''
+  }));
+  
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Riwayat Transaksi');
+  XLSX.writeFile(workbook, 'Riwayat_Transaksi.xlsx');
+  
+  showToast('Riwayat berhasil diexport ke Excel');
+}
+
+// Fungsi untuk export riwayat ke PDF
+function exportRiwayatPDF() {
+  const filter = document.getElementById('filterRiwayat').value;
+  const searchTerm = document.getElementById('searchRiwayat').value;
+  
+  let filteredData = filter === 'all' 
+    ? appData.riwayat 
+    : appData.riwayat.filter(item => item.jenis === filter);
+  
+  // Terapkan pencarian jika ada
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filteredData = filteredData.filter(item => 
+      item.kode.toLowerCase().includes(term) || 
+      item.nama.toLowerCase().includes(term) || 
+      item.user.toLowerCase().includes(term) ||
+      (item.catatan && item.catatan.toLowerCase().includes(term))
+    );
+  }
+  
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  doc.text('RIWAYAT TRANSAKSI - PT. HAMDAN JAYA MAKMUR', 14, 15);
+  doc.autoTable({
+    head: [['Waktu', 'Kode', 'Nama', 'Jenis', 'Qty', 'User', 'Catatan']],
+    body: filteredData.map(item => [
+      formatDate(item.waktu),
+      item.kode,
+      item.nama,
+      item.jenis.toUpperCase(),
+      item.qty,
+      item.user,
+      item.catatan || ''
+    ]),
+    startY: 20,
+  });
+  
+  doc.save('Riwayat_Transaksi.pdf');
+  showToast('Riwayat berhasil diexport ke PDF');
+}
+
+// Fungsi untuk export laporan ke PDF
+function exportLaporanPDF() {
+  const bulan = document.getElementById('lapBulan').value;
+  if (!bulan) {
+    showToast('Pilih bulan terlebih dahulu', 'error');
+    return;
+  }
+  
+  hitungLaporanBulanan(bulan, true);
+}
+
+// Fungsi untuk backup data ke JSON
+function backupData() {
+  const dataStr = JSON.stringify(appData);
+  const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+  
+  const exportFileDefaultName = `backup-data-${new Date().toISOString().slice(0,10)}.json`;
+  
+  const linkElement = document.createElement('a');
+  linkElement.setAttribute('href', dataUri);
+  linkElement.setAttribute('download', exportFileDefaultName);
+  linkElement.click();
+  
+  showToast('Backup data berhasil');
+}
+
+// Fungsi untuk restore data dari JSON
+function restoreData(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const jsonData = JSON.parse(e.target.result);
+      
+      // Validasi data
+      if (jsonData.barang && jsonData.riwayat && jsonData.users) {
+        appData = jsonData;
+        saveData();
+        loadData();
+        showToast('Data berhasil direstore');
+      } else {
+        showToast('Format file tidak valid', 'error');
+      }
+    } catch (error) {
+      showToast('Error membaca file', 'error');
+      console.error(error);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Fungsi untuk menghitung laporan bulanan
+function hitungLaporanBulanan(bulan, forExport = false) {
+  // Format: YYYY-MM
+  const [year, month] = bulan.split('-');
+  const selectedMonth = parseInt(month) - 1; // JavaScript month is 0-indexed
+  
+  // Filter riwayat berdasarkan bulan yang dipilih
+  const riwayatBulanIni = appData.riwayat.filter(item => {
+    const itemDate = new Date(item.waktu);
+    return itemDate.getFullYear() == year && itemDate.getMonth() === selectedMonth;
+  });
+  
+  // Jika tidak ada transaksi di bulan tersebut
+  if (riwayatBulanIni.length === 0) {
+    const tbody = document.getElementById('tbodyLaporan');
+    tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Tidak ada transaksi pada bulan ini</td></tr>';
+    
+    // Sembunyikan chart
+    const chartContainer = document.getElementById('chartContainer');
+    chartContainer.innerHTML = '<p class="text-center p-4">Tidak ada data untuk ditampilkan dalam grafik</p>';
+    
+    if (forExport) {
+      showToast('Tidak ada data untuk diexport', 'error');
+    } else {
+      showToast('Tidak ada transaksi pada bulan yang dipilih', 'info');
+    }
+    return;
+  }
+  
+  // Hitung masuk dan keluar untuk setiap barang
+  const laporan = appData.barang.map(barang => {
+    const masuk = riwayatBulanIni
+      .filter(r => r.kode === barang.kode && r.jenis === 'in')
+      .reduce((sum, r) => sum + r.qty, 0);
+      
+    const keluar = riwayatBulanIni
+      .filter(r => r.kode === barang.kode && r.jenis === 'out')
+      .reduce((sum, r) => sum + r.qty, 0);
+      
+    // Hitung stok awal (stok akhir bulan sebelumnya)
+    // Untuk penyederhanaan, kita asumsikan stok awal adalah stok saat ini dikurangi transaksi bulan ini
+    const stokAwal = Math.max(0, barang.qty - masuk + keluar);
+    
+    return {
+      kode: barang.kode,
+      nama: barang.nama,
+      stokAwal: stokAwal,
+      masuk: masuk,
+      keluar: keluar,
+      stokAkhir: stokAwal + masuk - keluar
+    };
+  });
+  
+  // Tampilkan di tabel
+  const tbody = document.getElementById('tbodyLaporan');
+  tbody.innerHTML = '';
+  
+  laporan.forEach(item => {
+    // Hanya tampilkan barang yang memiliki transaksi atau stok akhir > 0
+    if (item.masuk > 0 || item.keluar > 0 || item.stokAkhir > 0) {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="p-2 text-center">${item.kode}</td>
+        <td class="p-2">${item.nama}</td>
+        <td class="p-2 text-center">${item.masuk}</td>
+        <td class="p-2 text-center">${item.keluar}</td>
+        <td class="p-2 text-center font-bold">${item.stokAkhir}</td>
+      `;
+      tbody.appendChild(row);
+    }
+  });
+  
+  // Update chart
+  const ctx = document.getElementById('chartLaporan');
+  if (window.laporanChart) {
+    window.laporanChart.destroy();
+  }
+  
+  // Filter data untuk chart (hanya barang dengan transaksi)
+  const chartData = laporan.filter(item => item.masuk > 0 || item.keluar > 0 || item.stokAkhir > 0);
+  
+  // Pastikan ada data untuk ditampilkan di chart
+  const hasData = chartData.length > 0;
+  
+  if (hasData) {
+    // Pastikan canvas ada
+    if (!ctx) {
+      const chartContainer = document.getElementById('chartContainer');
+      chartContainer.innerHTML = '<canvas id="chartLaporan" height="120"></canvas>';
+    }
+    
+    window.laporanChart = new Chart(document.getElementById('chartLaporan'), {
+      type: 'bar',
+      data: {
+        labels: chartData.map(item => item.nama),
+        datasets: [
+          {
+            label: 'Masuk',
+            data: chartData.map(item => item.masuk),
+            backgroundColor: 'rgba(75, 192, 192, 0.5)'
+          },
+          {
+            label: 'Keluar',
+            data: chartData.map(item => item.keluar),
+            backgroundColor: 'rgba(255, 99, 132, 0.5)'
+          },
+          {
+            label: 'Stok Akhir',
+            data: chartData.map(item => item.stokAkhir),
+            backgroundColor: 'rgba(153, 102, 255, 0.5)'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  } else {
+    document.getElementById('chartContainer').innerHTML = '<p class="text-center p-4">Tidak ada data untuk ditampilkan dalam grafik</p>';
+  }
+  
+  // Jika untuk export, buat PDF
+  if (forExport) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.text(`LAPORAN BULANAN STOK OPNAME - ${bulan} - PT. HAMDAN JAYA MAKMUR`, 14, 15);
+    doc.autoTable({
+      head: [['Kode', 'Nama', 'Masuk', 'Keluar', 'Qty Akhir']],
+      body: laporan
+        .filter(item => item.masuk > 0 || item.keluar > 0 || item.stokAkhir > 0)
+        .map(item => [
+          item.kode,
+          item.nama,
+          item.masuk,
+          item.keluar,
+          item.stokAkhir
+        ]),
+      startY: 20,
+    });
+    
+    doc.save(`Laporan_Stok_Opname_${bulan}.pdf`);
+    showToast('Laporan berhasil diexport ke PDF');
+  }
+}
+
+// Fungsi untuk mengatur mode read-only
+function setReadOnlyMode(isReadOnly) {
+  const elements = document.querySelectorAll('.admin-only');
+  elements.forEach(el => {
+    if (isReadOnly) {
+      el.classList.add('hidden');
+    } else {
+      el.classList.remove('hidden');
+    }
+  });
+  
+  // Nonaktifkan form input untuk user read-only
+  const forms = document.querySelectorAll('form');
+  forms.forEach(form => {
+    if (isReadOnly) {
+      form.classList.add('read-only-mode');
+    } else {
+      form.classList.remove('read-only-mode');
+    }
+  });
+}
+
+// Event listener ketika halaman dimuat
+document.addEventListener('DOMContentLoaded', function() {
+  // Load data
+  loadData();
+  
+  // Inisialisasi filter riwayat
+  const filterRiwayat = document.getElementById('filterRiwayat');
+  filterRiwayat.addEventListener('change', function() {
+    loadRiwayatData(this.value, document.getElementById('searchRiwayat').value);
+  });
+  
+  // Pencarian barang
+  document.getElementById('searchBarang').addEventListener('input', function() {
+    loadBarangData(this.value);
+  });
+  
+  // Pencarian riwayat
+  document.getElementById('searchRiwayat').addEventListener('input', function() {
+    loadRiwayatData(document.getElementById('filterRiwayat').value, this.value);
+  });
+  
+  // Event listener untuk form barang
+  document.getElementById('formBarang').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Cek jika user read-only
+    if (currentUserRole === 'read') {
+      showToast('Anda tidak memiliki izin untuk menambah barang', 'error');
+      return;
+    }
+    
+    const id = document.getElementById('barangId').value;
+    const kode = document.getElementById('barangKode').value;
+    const nama = document.getElementById('barangNama').value;
+    const lokasi = document.getElementById('barangLokasi').value;
+    const satuan = document.getElementById('barangSatuan').value;
+    const qty = parseInt(document.getElementById('barangQty').value);
+    
+    if (id) {
+      // Edit barang yang ada
+      const index = appData.barang.findIndex(item => item.id == id);
+      if (index !== -1) {
+        const oldQty = appData.barang[index].qty;
+        appData.barang[index] = {
+          ...appData.barang[index],
+          nama,
+          lokasi,
+          satuan,
+          qty,
+          updated: new Date().toISOString()
+        };
+        
+        // Tambahkan ke riwayat jika qty berubah
+        if (oldQty !== qty) {
+          const jenis = qty > oldQty ? 'in' : 'out';
+          const qtyChange = Math.abs(qty - oldQty);
+          
+          appData.riwayat.push({
+            id: Date.now(),
+            waktu: new Date().toISOString(),
+            kode,
+            nama,
+            jenis,
+            qty: qtyChange,
+            user: document.getElementById('lblUser').textContent,
+            catatan: 'Perubahan stok dari edit barang'
+          });
+        }
+      }
+    } else {
+      // Tambah barang baru
+      const newBarang = {
+        id: Date.now(),
+        kode,
+        nama,
+        lokasi,
+        satuan,
+        qty,
+        updated: new Date().toISOString()
+      };
+      
+      appData.barang.push(newBarang);
+      
+      // Tambahkan ke riwayat
+      appData.riwayat.push({
+        id: Date.now() + 1,
+        waktu: new Date().toISOString(),
+        kode,
+        nama,
+        jenis: 'in',
+        qty,
+        user: document.getElementById('lblUser').textContent,
+        catatan: 'Barang baru ditambahkan'
+      });
+    }
+    
+    saveData();
+    loadBarangData(document.getElementById('searchBarang').value);
+    loadRiwayatData(document.getElementById('filterRiwayat').value, document.getElementById('searchRiwayat').value);
+    updateDashboard();
+    
+    document.getElementById('modalBarang').classList.add('hidden');
+    showToast(`Barang ${id ? 'berhasil diupdate' : 'berhasil ditambahkan'}`);
+  });
+  
+  // Event listener untuk tambah barang
+  document.getElementById('btnTambahBarang').addEventListener('click', function() {
+    // Cek jika user read-only
+    if (currentUserRole === 'read') {
+      showToast('Anda tidak memiliki izin untuk menambah barang', 'error');
+      return;
+    }
+    tambahBarang();
+  });
+  
+  // Event listener untuk batal tambah/edit barang
+  document.getElementById('btnCancelBarang').addEventListener('click', function() {
+    document.getElementById('modalBarang').classList.add('hidden');
+  });
+  
+  // Event listener untuk tutup modal riwayat
+  document.getElementById('btnTutupRiwayat').addEventListener('click', function() {
+    document.getElementById('modalRiwayat').classList.add('hidden');
+  });
+  
+  // Event listener untuk export barang
+  document.getElementById('btnExportBarangExcel').addEventListener('click', exportBarangExcel);
+  document.getElementById('btnExportBarangPDF').addEventListener('click', exportBarangPDF);
+  
+  // Event listener untuk export riwayat
+  document.getElementById('btnExportRiwayatExcel').addEventListener('click', exportRiwayatExcel);
+  document.getElementById('btnExportRiwayatPDF').addEventListener('click', exportRiwayatPDF);
+  
+  // Event listener untuk backup dan restore
+  document.getElementById('btnBackupJSON').addEventListener('click', backupData);
+  document.getElementById('inputRestoreJSON').addEventListener('change', function(e) {
+    if (this.files.length > 0) {
+      // Cek jika user read-only
+      if (currentUserRole === 'read') {
+        showToast('Anda tidak memiliki izin untuk restore data', 'error');
+        return;
+      }
+      restoreData(this.files[0]);
+    }
+  });
+  
+  // Event listener untuk form stok in
+  document.getElementById('formIn').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Cek jika user read-only
+    if (currentUserRole === 'read') {
+      showToast('Anda tidak memiliki izin untuk menambah stok', 'error');
+      return;
+    }
+    
+    const barangId = document.getElementById('inKode').value;
+    const qty = parseInt(document.getElementById('inQty').value);
+    const catatan = document.getElementById('inNote').value;
+    
+    if (!barangId) {
+      showToast('Pilih barang terlebih dahulu', 'error');
+      return;
+    }
+    
+    const barang = appData.barang.find(item => item.id == barangId);
+    if (barang) {
+      // Update stok barang
+      barang.qty += qty;
+      barang.updated = new Date().toISOString();
+      
+      // Tambahkan ke riwayat
+      appData.riwayat.push({
+        id: Date.now(),
+        waktu: new Date().toISOString(),
+        kode: barang.kode,
+        nama: barang.nama,
+        jenis: 'in',
+        qty,
+        user: document.getElementById('lblUser').textContent,
+        catatan
+      });
+      
+      saveData();
+      loadBarangData(document.getElementById('searchBarang').value);
+      loadRiwayatData(document.getElementById('filterRiwayat').value, document.getElementById('searchRiwayat').value);
+      updateDashboard();
+      
+      // Reset form
+      this.reset();
+      document.getElementById('inNama').value = '';
+      
+      showToast('Stok masuk berhasil dicatat');
+    }
+  });
+  
+  // Event listener untuk form stok out
+  document.getElementById('formOut').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Cek jika user read-only
+    if (currentUserRole === 'read') {
+      showToast('Anda tidak memiliki izin untuk mengurangi stok', 'error');
+      return;
+    }
+    
+    const barangId = document.getElementById('outKode').value;
+    const qty = parseInt(document.getElementById('outQty').value);
+    const catatan = document.getElementById('outNote').value;
+    
+    if (!barangId) {
+      showToast('Pilih barang terlebih dahulu', 'error');
+      return;
+    }
+    
+    const barang = appData.barang.find(item => item.id == barangId);
+    if (barang) {
+      if (barang.qty < qty) {
+        showToast('Stok tidak mencukupi', 'error');
+        return;
+      }
+      
+      // Update stok barang
+      barang.qty -= qty;
+      barang.updated = new Date().toISOString();
+      
+      // Tambahkan ke riwayat
+      appData.riwayat.push({
+        id: Date.now(),
+        waktu: new Date().toISOString(),
+        kode: barang.kode,
+        nama: barang.nama,
+        jenis: 'out',
+        qty,
+        user: document.getElementById('lblUser').textContent,
+        catatan
+      });
+      
+      saveData();
+      loadBarangData(document.getElementById('searchBarang').value);
+      loadRiwayatData(document.getElementById('filterRiwayat').value, document.getElementById('searchRiwayat').value);
+      updateDashboard();
+      
+      // Reset form
+      this.reset();
+      document.getElementById('outNama').value = '';
+      
+      showToast('Stok keluar berhasil dicatat');
+    }
+  });
+  
+  // Event listener untuk update nama barang saat kode dipilih
+  document.getElementById('inKode').addEventListener('change', function() {
+    updateNamaBarang('inKode', 'inNama');
+  });
+  
+  document.getElementById('outKode').addEventListener('change', function() {
+    updateNamaBarang('outKode', 'outNama');
+  });
+  
+  // Event listener untuk tombol hitung laporan
+  document.getElementById('btnHitungLaporan').addEventListener('click', function() {
+    const bulan = document.getElementById('lapBulan').value;
+    if (bulan) {
+      hitungLaporanBulanan(bulan);
+    } else {
+      showToast('Pilih bulan terlebih dahulu', 'error');
+    }
+  });
+  
+  // Event listener untuk export laporan PDF
+  document.getElementById('btnExportLaporanPDF').addEventListener('click', exportLaporanPDF);
+  
+  // Event listener untuk ubah password
+  document.getElementById('btnChangePass').addEventListener('click', function() {
+    const oldPass = document.getElementById('oldPass').value;
+    const newPass = document.getElementById('newPass').value;
+    
+    const currentUser = document.getElementById('lblUser').textContent;
+    const user = appData.users.find(u => u.username === currentUser);
+    
+    if (user && user.password === oldPass) {
+      user.password = newPass;
+      saveData();
+      document.getElementById('oldPass').value = '';
+      document.getElementById('newPass').value = '';
+      showToast('Password berhasil diubah');
+    } else {
+      showToast('Password lama tidak sesuai', 'error');
+    }
+  });
+  
+  // Event listener untuk tambah user
+  document.getElementById('btnAddUser').addEventListener('click', function() {
+    const username = document.getElementById('mUser').value;
+    const role = document.getElementById('mRole').value;
+    const password = document.getElementById('mPass').value;
+    
+    if (!username || !password) {
+      showToast('Username dan password harus diisi', 'error');
+      return;
+    }
+    
+    if (appData.users.some(u => u.username === username)) {
+      showToast('Username sudah ada', 'error');
+      return;
+    }
+    
+    appData.users.push({
+      username,
+      password,
+      role
+    });
+    
+    saveData();
+    loadUserData();
+    
+    document.getElementById('mUser').value = '';
+    document.getElementById('mPass').value = '';
+    
+    showToast('User berhasil ditambahkan');
+  });
+  
+  // Event listener untuk refresh
+  document.getElementById('btnRefresh').addEventListener('click', function() {
+    loadData();
+    showToast('Data telah diperbarui');
+  });
+  
+  // Event listener untuk hapus riwayat
+  document.getElementById('btnClearRiwayat').addEventListener('click', function() {
+    if (confirm('Apakah Anda yakin ingin menghapus semua riwayat transaksi?')) {
+      appData.riwayat = [];
+      saveData();
+      loadRiwayatData(document.getElementById('filterRiwayat').value, document.getElementById('searchRiwayat').value);
+      showToast('Semua riwayat telah dihapus');
+    }
+  });
+  
+  // Set bulan default ke bulan ini
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  document.getElementById('lapBulan').value = `${year}-${month}`;
+  
+  // Hitung laporan untuk bulan ini secara otomatis
+  hitungLaporanBulanan(`${year}-${month}`);
+  
+  // Simulasi login sederhana
+  document.getElementById('btnLogin').addEventListener('click', function() {
+    const username = document.getElementById('loginUser').value;
+    const password = document.getElementById('loginPass').value;
+    
+    const user = appData.users.find(u => u.username === username && u.password === password);
+    
+    if (user) {
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('appSection').classList.remove('hidden');
+      document.getElementById('lblUser').textContent = user.username;
+      document.getElementById('lblRole').textContent = user.role;
+      
+      // Simpan role user yang login
+      currentUserRole = user.role;
+      
+      // Tampilkan/sembunyikan elemen berdasarkan role
+      setReadOnlyMode(user.role === 'read');
+      
+      showToast(`Selamat datang, ${user.username}`);
+    } else {
+      showToast('Username atau password salah', 'error');
+    }
+  });
+  
+  // Logout
+  document.getElementById('btnLogout').addEventListener('click', function() {
+    document.getElementById('loginSection').classList.remove('hidden');
+    document.getElementById('appSection').classList.add('hidden');
+    document.getElementById('loginUser').value = '';
+    document.getElementById('loginPass').value = '';
+  });
+  
+  // Navigasi antar view
+  document.querySelectorAll('.navbtn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const targetView = this.dataset.view;
+      document.querySelectorAll('.view').forEach(view => {
+        view.classList.add('hidden');
+      });
+      document.getElementById(targetView).classList.remove('hidden');
+    });
+  });
+});
+</script>
+
+</body>
+</html>
